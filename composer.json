@@ -1,0 +1,10 @@
+{
+    "name": "reactor/symmetric-encrypter",
+    "autoload": {
+        "psr-4": { "Reactor\\SymmetricEncrypter\\": "src/"}
+    },
+    "config": {
+        "secure-http": false,
+        "preferred-install": "dist"
+    }
+}
