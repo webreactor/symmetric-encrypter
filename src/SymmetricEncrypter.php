@@ -1,4 +1,5 @@
 <?php
+
 namespace Reactor\SymmetricEncrypter;
 
 class SymmetricEncrypter {
@@ -12,50 +13,44 @@ class SymmetricEncrypter {
 
         $encrypted = $this->encryptStr($packed, $secret);
 
-        $signature = $this->getSignature($encrypted, $secret);
-
-        return $encrypted . '.' . $signature;
+        return $this->signStr($encrypted, $secret);
     }
 
     public function decrypt($message, $secret) {
         $this->resetReport();
-        $message_data = explode('.', $message);
-        if (count($message_data) != 3) {
-            $this->addReport("Failed to decrypt {$message}");
-            $this->addReport("Message stucrure (expected sss.sss.sss) is broken");
-            return false;
-        }
 
-        $encrypted = $message_data[0].'.'.$message_data[1];
-        $signature_test = $message_data[2];
+        $encrypted = $this->checkSignedStr($message, $secret);
 
-        $signature = $this->getSignature($encrypted, $secret);
-        if ($signature_test !== $signature) {
-            $this->addReport("Failed to decrypt {$message}");
-            $this->addReport("Message signature is invalid, Got {$signature} expected {$signature_test}");
+        if ($encrypted === false) {
+            $this->addReport("Message signature is invalid");
             return false;
         }
 
         $packed = $this->decryptStr($encrypted, $secret);
         if ($packed === false) {
-            $this->addReport("Failed to decrypt {$message}");
-            $this->addReport("Key or encrypted message stucture (expected ss.ss) is wrong");
+            $this->addReport("Failed: encrypted message is modified");
             return false;
         }
         return $this->unpackData($packed);
     }
 
+    // ---------------------------------------------------------------------------------
+    // Debuging, issue investigating
+
     protected function resetReport() {
-        $this->report = '';
+        $this->report = "";
     }
 
-    protected function addReport($str) {
-        $this->report .= $str.'; ';
+    protected function addReport($message) {
+        $this->report .= "{$message}; ";
     }
 
     public function getReport() {
         return rtrim($this->report);
     }
+
+    // ---------------------------------------------------------------------------------
+    // Convert data structure to sting and back
 
     protected function packData($data) {
         return gzcompress(json_encode($data));
@@ -65,28 +60,65 @@ class SymmetricEncrypter {
         return json_decode(gzuncompress($packed), true);
     }
 
+    // ---------------------------------------------------------------------------------
+    // Message signature support
+
     protected function getSignature($string, $salt) {
-        return md5($string.$salt);
+        return md5($string . $salt);
     }
+
+    protected function signStr($string, $salt) {
+        return $this->getSignature($string, $salt) . $string;
+    }
+
+    protected function checkSignedStr($envelope, $salt) {
+        // 32 - md5 size
+        if (strlen($envelope) < 32) {
+            return false;
+        }
+        $signature_test = substr($envelope, 0, 32);
+        $message = substr($envelope, 32);
+
+        $signature = $this->getSignature($message, $salt);
+        if ($signature === $signature_test) {
+            return $message;
+        }
+        return false;
+    }
+
+    // ---------------------------------------------------------------------------------
+    // pass data over url support
+
+    protected function bin2str($bin) {
+        return strtr(base64_encode($bin), '+/=', '-._');
+    }
+
+    protected function str2bin($string) {
+        return base64_decode(strtr($string, '-._', '+/='));
+    }
+
+    // ---------------------------------------------------------------------------------
+    // Symmetric encrypting
 
     protected function encryptStr($string, $secret) {
         $iv_size = mcrypt_get_iv_size(MCRYPT_BLOWFISH, MCRYPT_MODE_CBC);
         $iv = mcrypt_create_iv($iv_size, MCRYPT_RAND);
 
         $encrypted_str = mcrypt_encrypt(MCRYPT_BLOWFISH, $secret, $string, MCRYPT_MODE_CBC, $iv);
-        return base64_encode($encrypted_str) . '.' . base64_encode($iv);
+        return $this->bin2str($iv.$encrypted_str);
     }
 
     protected function decryptStr($encrypted, $secret) {
-        $encrypted = explode('.', $encrypted);
-        if (count($encrypted) != 2) {
+        $encrypted = $this->str2bin($encrypted);
+
+        $iv_size = mcrypt_get_iv_size(MCRYPT_BLOWFISH, MCRYPT_MODE_CBC);
+        if (strlen($encrypted) < $iv_size) {
             return false;
         }
-        $encrypted_str = base64_decode($encrypted[0]);
-        $iv = base64_decode($encrypted[1]);
 
+        $iv = substr($encrypted, 0, $iv_size);
+        $encrypted_str = substr($encrypted, $iv_size);
         return mcrypt_decrypt(MCRYPT_BLOWFISH, $secret, $encrypted_str, MCRYPT_MODE_CBC, $iv);
     }
 
 }
-
