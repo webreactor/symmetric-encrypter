@@ -5,6 +5,7 @@ namespace Reactor\SymmetricEncrypter;
 class SymmetricEncrypter {
 
     protected $report = '';
+    protected $version = '1';
 
     public function encrypt($data, $secret) {
         $this->resetReport();
@@ -13,11 +14,19 @@ class SymmetricEncrypter {
 
         $encrypted = $this->encryptStr($packed, $secret);
 
-        return $this->signStr($encrypted, $secret);
+        $message = $this->signStr($encrypted, $secret);
+
+        return $this->setVersionTo($message);
     }
 
     public function decrypt($message, $secret) {
         $this->resetReport();
+
+        $message = $this->checkVersion($message);
+        if ($message === false) {
+            $this->addReport("Cannot message version is invalid");
+            return false;
+        }
 
         $encrypted = $this->checkSignedStr($message, $secret);
 
@@ -32,6 +41,25 @@ class SymmetricEncrypter {
             return false;
         }
         return $this->unpackData($packed);
+    }
+
+    // ---------------------------------------------------------------------------------
+    // Version control
+
+    protected function checkVersion($message) {
+        $delimeter = strpos($message, '-');
+        if ($delimeter === false) {
+            return false;
+        }
+        $version = substr($message, 0, $delimeter);
+        if ($this->version . '' != $version) {
+            return false;
+        }
+        return substr($message, $delimeter + 1);
+    }
+
+    protected function setVersionTo($message) {
+        return $this->version . '-' . $message;
     }
 
     // ---------------------------------------------------------------------------------
