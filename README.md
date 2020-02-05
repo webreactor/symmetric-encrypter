@@ -1,15 +1,16 @@
 # symmetric-encrypter
 
+Basicaly it's a wrapper on openssl_encrypt.
+
 * Encripts and decripts php arrays or strings.
 * Safe to use encripted string in URL.
 * Secured with hash from changes.
+* Default algorythm is `AES-256-CBC`
 
-Basicaly it's a wrapper on openssl_encrypt.
-Default algorythm is `AES-256-CBC`
+Tested:
 
-Tested 
-php 5.5 Ubuntu 14.04.4 LTS
-php 7.3 Ubuntu 16.04.6 LTS
+* php 5.5 Ubuntu 14.04.4 LTS
+* php 7.3 Ubuntu 16.04.6 LTS
 
 ###Instalation
 
