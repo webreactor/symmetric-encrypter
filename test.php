@@ -1,6 +1,9 @@
 <?php
 include "vendor/autoload.php";
 
+ini_set('display_errors','1');
+error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_STRICT);
+
 $tester = new Tester();
 $sp = new \Reactor\SymmetricEncrypter\SymmetricEncrypter();
 
@@ -42,6 +45,15 @@ $tester->assert("Returns false if message is made up", $decrypted === false);
 $decrypted = $sp->decrypt($encrypted_message, 'wrongkey');
 $tester->assert("Returns false if key is wrong", $decrypted === false);
 
+
+$encrypted_message = $sp->encrypt($data, $key);
+$encrypted_message2 = $sp->encrypt($data, $key);
+$tester->assert("IV works", $encrypted_message != $encrypted_message2);
+
+$sp2 = new \Reactor\SymmetricEncrypter\SymmetricEncrypter(true);
+$encrypted_message = $sp2->encrypt($data, $key);
+$encrypted_message2 = $sp2->encrypt($data, $key);
+$tester->assert("Static IV works", $encrypted_message == $encrypted_message2);
 
 
 echo "Total: {$tester->total}\n";

@@ -4,6 +4,13 @@
 * Safe to use encripted string in URL.
 * Secured with hash from changes.
 
+Basicaly it's a wrapper on openssl_encrypt.
+Default algorythm is `AES-256-CBC`
+
+Tested 
+php 5.5 Ubuntu 14.04.4 LTS
+php 7.3 Ubuntu 16.04.6 LTS
+
 ###Instalation
 
 In composer.json:
@@ -37,22 +44,22 @@ $key = 'some key';
 $encrypted_string = $encrypter->encrypt($data, $key);
 echo "Encrypted string: $encrypted_string\n";
 $recieved_data = $encrypter->decrypt($encrypted_string, $key);
-print_r($recieved_data);
-```
 
-
-###Handle fails
-
-`$encrypter->decrypt($encrypted_string, $key);` will return false if key is wrong or message is corrupted.
-
-Use `$encrypter->getReport()` to get debug information string. Do not expose it to user.
-
-Example of getReport output:
+if ($recieved_data === false) {
+    echo "Message was modified or password is incorrect";
+} else {
+    print_r($recieved_data);
+}
 
 ```
-Failed to decrypt fMSI1CH0JKsYDPKmoLfwSL0FsSyfxDCr17WcnYkcCZhgsmZQ5qLdOfML+J0yHrYSLYD0az5jzpvzcoGZRRS+Aw==.EdaZRhxWhTU=.5a3043902d5f05c1f397d5e54d7e51b7; Message signature is invalid, Got 9ba799cb3de73a8289492d26f21189ed expected 5a3043902d5f05c1f397d5e54d7e51b7;
 
-Failed to decrypt fMSI1CH0JKsYDPKmoLfwSL0FsSyfxDCr17WcnYkcCZhgsmZQ5qLdOfML+J0yHrYSLYD0az5jzpvzcoGZRRS+Aw==.EdaZRhxWhTU=.5a3043902d5f05c1f397d5e54d7e51b7modified; Message signature is invalid, Got 5a3043902d5f05c1f397d5e54d7e51b7 expected 5a3043902d5f05c1f397d5e54d7e51b7modified;
 
-Failed to decrypt totalyscruedmessage; Message stucrure (expected sss.sss.sss) is broken;
+###Testing
+```bash
+
+git clone git@github.com:webreactor/symmetric-encrypter.git
+cd symmetric-encrypter
+composer install
+php test.php
+
 ```

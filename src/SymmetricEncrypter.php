@@ -4,77 +4,40 @@ namespace Reactor\SymmetricEncrypter;
 
 class SymmetricEncrypter {
 
-    protected $report = '';
-    protected $version = '1';
+    public function __construct($static_iv = false, $cipher = 'AES-256-CBC') {
+        $this->cipher = $cipher;
+        $this->iv_length = \openssl_cipher_iv_length($cipher);
+        $this->static_iv = $static_iv;
+    }
 
     public function encrypt($data, $secret) {
-        $this->resetReport();
-
-        $packed = $this->packData($data);
-
-        $encrypted = $this->encryptStr($packed, $secret);
-
-        $message = $this->signStr($encrypted, $secret);
-
-        return $this->setVersionTo($message);
+        $encrypted = $this->encryptBin($data, $secret);
+        return $this->bin2str($encrypted);
     }
 
     public function decrypt($message, $secret) {
-        $this->resetReport();
+        $encrypted = $this->str2bin($message);
+        return $this->decryptBin($encrypted, $secret);
+    }
 
-        $message = $this->checkVersion($message);
-        if ($message === false) {
-            $this->addReport("Cannot message version is invalid");
-            return false;
-        }
+    public function encryptBin($data, $secret) {
+        $packed = $this->packData($data);
+        $encrypted = $this->encryptStr($packed, $secret);
+        return $this->signStr($encrypted, $secret);
+    }
 
+    public function decryptBin($message, $secret) {
         $encrypted = $this->checkSignedStr($message, $secret);
 
         if ($encrypted === false) {
-            $this->addReport("Message signature is invalid");
             return false;
         }
 
         $packed = $this->decryptStr($encrypted, $secret);
         if ($packed === false) {
-            $this->addReport("Failed: encrypted message is modified");
             return false;
         }
         return $this->unpackData($packed);
-    }
-
-    // ---------------------------------------------------------------------------------
-    // Version control
-
-    protected function checkVersion($message) {
-        $delimeter = strpos($message, '-');
-        if ($delimeter === false) {
-            return false;
-        }
-        $version = substr($message, 0, $delimeter);
-        if ($this->version . '' != $version) {
-            return false;
-        }
-        return substr($message, $delimeter + 1);
-    }
-
-    protected function setVersionTo($message) {
-        return $this->version . '-' . $message;
-    }
-
-    // ---------------------------------------------------------------------------------
-    // Debuging, issue investigating
-
-    protected function resetReport() {
-        $this->report = "";
-    }
-
-    protected function addReport($message) {
-        $this->report .= "{$message}; ";
-    }
-
-    public function getReport() {
-        return rtrim($this->report);
     }
 
     // ---------------------------------------------------------------------------------
@@ -129,24 +92,18 @@ class SymmetricEncrypter {
     // Symmetric encrypting
 
     protected function encryptStr($string, $secret) {
-        $iv_size = mcrypt_get_iv_size(MCRYPT_BLOWFISH, MCRYPT_MODE_CBC);
-        $iv = mcrypt_create_iv($iv_size, MCRYPT_RAND);
-
-        $encrypted_str = mcrypt_encrypt(MCRYPT_BLOWFISH, $secret, $string, MCRYPT_MODE_CBC, $iv);
-        return $this->bin2str($iv.$encrypted_str);
+        if ($this->static_iv !== false) {
+            $iv = substr(str_repeat(md5($secret), ceil($this->iv_length/32)), 0, $this->iv_length);
+        } else {
+            $iv = openssl_random_pseudo_bytes($this->iv_length);
+        }
+        return $iv.\openssl_encrypt($string, $this->cipher, $secret, \OPENSSL_RAW_DATA, $iv);
     }
 
     protected function decryptStr($encrypted, $secret) {
-        $encrypted = $this->str2bin($encrypted);
-
-        $iv_size = mcrypt_get_iv_size(MCRYPT_BLOWFISH, MCRYPT_MODE_CBC);
-        if (strlen($encrypted) < $iv_size) {
-            return false;
-        }
-
-        $iv = substr($encrypted, 0, $iv_size);
-        $encrypted_str = substr($encrypted, $iv_size);
-        return mcrypt_decrypt(MCRYPT_BLOWFISH, $secret, $encrypted_str, MCRYPT_MODE_CBC, $iv);
+        $iv = substr($encrypted, 0, $this->iv_length);
+        $encrypted = substr($encrypted, $this->iv_length);
+        return \openssl_decrypt($encrypted, $this->cipher, $secret, \OPENSSL_RAW_DATA, $iv);
     }
 
 }
